@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>貨號查詢系統</title>
+
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 16px;
+      background: #f5f5f5;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: auto;
+    }
+
+    .title {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .search-box {
+      width: 100%;
+      padding: 14px;
+      font-size: 18px;
+      border-radius: 12px;
+      border: 1px solid #ccc;
+      margin-bottom: 16px;
+    }
+
+    .item {
+      background: white;
+      padding: 14px;
+      border-radius: 12px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      transition: 0.2s;
+    }
+
+    .item:hover {
+      transform: scale(1.01);
+    }
+
+    .name {
+      font-size: 16px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .code {
+      font-size: 18px;
+      color: #008000;
+      font-weight: bold;
+    }
+
+    .copy {
+      margin-top: 8px;
+      font-size: 14px;
+      color: #666;
+    }
+
+    .empty {
+      text-align: center;
+      margin-top: 30px;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="title">📦 貨號查詢系統</div>
+
+  <input
+    type="text"
+    id="search"
+    class="search-box"
+    placeholder="輸入商品名稱或貨號"
+    oninput="searchProducts()"
+  />
+
+  <div id="result"></div>
+</div>
+
+<script>
+  const LIFF_ID = "2010080322-ShKX2ry4";
+  const SHEET_ID = "1iRaEpW3MAroCMg6958zQjwg0KeRrQ8fjlQqoHwgEa1c";
+
+  // Google Sheet CSV網址
+  const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv`;
+
+  let products = [];
+
+  async function initLIFF() {
+    try {
+      await liff.init({ liffId: LIFF_ID });
+      console.log("LIFF 初始化成功");
+    } catch (err) {
+      console.error("LIFF 初始化失敗", err);
+    }
+  }
+
+  async function loadProducts() {
+    try {
+      const response = await fetch(SHEET_URL);
+      const csv = await response.text();
+
+      const rows = csv.split('\n').slice(1);
+
+      products = rows
+        .map(row => {
+          const cols = row.split(',');
+          return {
+            name: cols[0]?.replace(/"/g, '').trim(),
+            code: cols[1]?.replace(/"/g, '').trim()
+          };
+        })
+        .filter(item => item.name && item.code);
+
+      renderProducts(products);
+
+    } catch (err) {
+      console.error(err);
+      document.getElementById('result').innerHTML = `
+        <div class="empty">無法讀取 Google Sheet 資料</div>
+      `;
+    }
+  }
+
+  function renderProducts(data) {
+    const result = document.getElementById('result');
+
+    if (data.length === 0) {
+      result.innerHTML = `<div class="empty">找不到商品</div>`;
+      return;
+    }
+
+    result.innerHTML = data.map(item => `
+      <div class="item" onclick="copyCode('${item.code}')">
+        <div class="name">${item.name}</div>
+        <div class="code">${item.code}</div>
+        <div class="copy">點擊即可複製貨號</div>
+      </div>
+    `).join('');
+  }
+
+  function searchProducts() {
+    const keyword = document.getElementById('search').value.toLowerCase();
+
+    const filtered = products.filter(item =>
+      item.name.toLowerCase().includes(keyword) ||
+      item.code.toLowerCase().includes(keyword)
+    );
+
+    renderProducts(filtered);
+  }
+
+  async function copyCode(code) {
+    try {
+      await navigator.clipboard.writeText(code);
+      alert(`已複製貨號：${code}`);
+    } catch (err) {
+      console.error(err);
+      alert('複製失敗');
+    }
+  }
+
+  initLIFF();
+  loadProducts();
+</script>
+
+</body>
+</html>
